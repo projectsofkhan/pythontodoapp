@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Python Checklist</title>
+    <!-- Load Tailwind CSS --><script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom font */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* Lighter grey background */
+        }
+        /* Custom scrollbar for aesthetics */
+        .task-list-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .task-list-container::-webkit-scrollbar-thumb {
+            background: #a855f7; /* Purple */
+            border-radius: 4px;
+        }
+        .task-list-container::-webkit-scrollbar-track {
+            background: #e9d5ff; /* Lighter purple */
+        }
+
+        /* Sticky header for chapters */
+        .chapter-header.sticky {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        /* Custom checkbox style */
+        input[type="checkbox"] {
+            /* For Firefox */
+            -moz-appearance: none;
+            /* For Safari and Chrome */
+            -webkit-appearance: none;
+            appearance: none;
+            display: inline-block;
+            width: 1.25rem; /* h-5 */
+            height: 1.25rem; /* w-5 */
+            flex-shrink: 0;
+            border: 2px solid #d1d5db; /* border-gray-300 */
+            border-radius: 0.25rem; /* rounded */
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            position: relative;
+        }
+
+        input[type="checkbox"]:checked {
+            background-color: #22c55e; /* bg-green-500 */
+            border-color: #22c55e; /* border-green-500 */
+        }
+
+        input[type="checkbox"]:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.4); /* focus:ring-green-500 with alpha */
+        }
+
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            display: block;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 0.9rem;
+            line-height: 1;
+        }
+
+        /* Purple checkbox state */
+        input[type="checkbox"].task-checkbox-purple {
+            border-color: #a78bfa; /* border-purple-400 */
+        }
+        input[type="checkbox"].task-checkbox-purple:focus {
+            box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.4); /* focus:ring-purple-400 with alpha */
+        }
+
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 antialiased">
+    <!-- RESPONSIVE CONTAINER: max-w-md on mobile, max-w-3xl on tablet, max-w-5xl on desktop -->
+    <div id="app-container" class="w-full max-w-md md:max-w-3xl lg:max-w-5xl bg-white rounded-3xl shadow-xl p-6 md:p-8 transition-all duration-300 relative">
+        <header class="text-center mb-6">
+            <h1 class="text-4xl font-extrabold text-purple-700 tracking-tight mb-2">
+                Ultimate Python Checklist
+            </h1>
+            <p class="text-gray-500 text-sm">
+                Master core concepts across 13 comprehensive chapters. (Inspired by CodeWithHarry)
+            </p>
+            <div class="w-full bg-gray-200 rounded-full h-2.5 mt-4">
+                <div id="overall-progress-bar" class="bg-gradient-to-r from-purple-500 to-green-500 h-2.5 rounded-full transition-all duration-500 ease-out" style="width: 0%;"></div>
+            </div>
+        </header>
+
+        <!-- Loading Indicator --><div id="loading" class="text-center p-8 text-purple-500">
+            <svg class="animate-spin h-8 w-8 text-purple-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="mt-3 text-base font-medium">Loading your progress...</p>
+        </div>
+
+        <!-- Task List Container --><div id="task-list-container" class="task-list-container space-y-6 max-h-[calc(100vh-250px)] overflow-y-auto pr-2 hidden">
+            <!-- Chapters and tasks will be rendered here by JavaScript --></div>
+
+        <footer class="mt-8 flex justify-between items-center text-xs text-gray-500">
+             <div class="flex items-center space-x-2 text-purple-600 font-semibold text-base">
+                 <span>Completed:</span>
+                 <!-- Completion Percentage is here -->
+                 <span id="overall-completion-percentage" class="bg-purple-100 px-3 py-1 rounded-full text-purple-700">0%</span>
+             </div>
+             <div class="text-right">
+                <p>User ID: <span id="user-id" class="font-mono text-gray-400 text-xs">...</span></p>
+                <p>App ID: <span id="app-id" class="font-mono text-gray-400 text-xs">...</span></p>
+             </div>
+        </footer>
+    </div>
+
+    <!-- Firebase Imports --><script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, updateDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Set Firebase logging level to Debug
+        setLogLevel('Debug');
+
+        // Global Firebase variables (Will be initialized in setupFirebaseAndAuth)
+        let db;
+        let auth;
+        let userId = 'unknown';
+
+        // MANDATORY: Global variables provided by the Canvas environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        const TASK_COLLECTION_PATH = `artifacts/${appId}/users/`;
+        const TASK_COLLECTION_NAME = 'python_concepts';
+        const TASK_DOC_ID = 'ultimate_course_tasks';
+
+        // --- Core Task Data (Updated to 13 Chapters based on CodeWithHarry titles) ---
+        // This array defines the initial list of concepts
+        const DEFAULT_CONCEPTS_BY_CHAPTER = {
+            "Chapter 1: Modules, Comments & Print": [
+                "Our First Python Program (print)",
+                "Modules in Python",
+                "Using pip and Installing Modules",
+                "Python as a Calculator (REPL)",
+                "Comments and Escape Sequences",
+            ],
+            "Chapter 2: Variables and Data Types & Input": [
+                "Variables and Data Types",
+                "Primitive Data Types in Python",
+                "Identifiers and Naming Rules",
+                "Operators in Python",
+                "Type-Casting and type() Function",
+                "Taking User Input",
+            ],
+            "Chapter 3: Strings and String Operations": [
+                "String Indexing and Slicing",
+                "Advanced Slicing (Skip Value)",
+                "String Methods (len, endswith, replace)",
+                "Escape Sequences in Strings",
+            ],
+            "Chapter 4: Lists and Tuples": [
+                "Lists: Indexing & Slicing",
+                "List Methods (append, sort, reverse)",
+                "Introduction to Tuples",
+                "Tuple Methods",
+            ],
+            "Chapter 5: Dictionary & Sets": [
+                "Dictionaries: Properties and Usage",
+                "Dictionary Methods",
+                "Sets in Python",
+                "Set Operations and Methods",
+            ],
+            "Chapter 6: Conditional Expressions (If-Else)": [
+                "If-Else-Elif Conditional Statements",
+                "Relational and Logical Operators",
+            ],
+            "Chapter 7: Loops in Python (For/While)": [
+                "While Loops",
+                "For Loops",
+                "The range() Function",
+                "For Loop with Else",
+                "Break, Continue, and Pass",
+            ],
+            "Chapter 8: Functions & Recursions": [
+                "Defining and Calling Functions",
+                "Function Arguments and Default Parameters",
+                "Function Return Statements",
+                "Recursion",
+            ],
+            "Chapter 9: File I/O (Input/Output)": [
+                "Reading and Writing to Files",
+                "OS Module: Working with Directories",
+                "File Open Modes (r, w, a, rb, wb)",
+                "The 'with' Statement for File Handling",
+            ],
+            "Chapter 10: Object-Oriented Programming (OOP)": [
+                "Classes and Objects (Introduction to OOP)",
+                "Instance and Class Methods",
+                "Class vs Instance Attributes",
+            ],
+            "Chapter 11: Inheritance & More on OOPs": [
+                "Inheritance Types (Single, Multiple)",
+                "Polymorphism",
+                "Operator Overloading",
+            ],
+            "Chapter 12: Advanced Python 1 (Modern Features)": [
+                "Modern Python Features (3.8+)",
+                "The Walrus Operator (:=)",
+                "Type Hints",
+                "Match-Case (Structural Pattern Matching)",
+                "Dictionary Merge Operators",
+                "Advanced Exception Handling",
+                "Global Keyword and Enumerate()",
+                "List, Dictionary & Set Comprehensions",
+            ],
+            "Chapter 13: Advanced Python 2 (Functional)": [
+                "Virtual Environments (venv)",
+                "Lambda Functions",
+                "String Formatting (f-strings, .format)",
+                "Map, Filter, and Reduce",
+            ]
+        };
+
+        // --- Utility Functions ---
+
+        /**
+         * Renders the list of tasks to the UI, grouped by chapter.
+         * @param {Array<Object>} tasks - Array of task objects {id, text, completed, chapter, order}
+         */
+        function renderTasks(tasks) {
+            const container = document.getElementById('task-list-container');
+            container.innerHTML = '';
+            
+            if (tasks.length === 0) {
+                 container.innerHTML = `
+                    <p class="text-center text-lg text-gray-500 p-8 bg-gray-50 rounded-xl">
+                        No tasks available. Please re-initialize the app.
+                    </p>`;
+                updateOverallProgress(0, 0);
+                return;
+            }
+
+            let totalTasks = 0;
+            let completedTasks = 0;
+            const tasksByChapter = tasks.reduce((acc, task) => {
+                const chapter = task.chapter;
+                if (!acc[chapter]) {
+                    acc[chapter] = [];
+                }
+                acc[chapter].push(task);
+                totalTasks++;
+                if (task.completed) {
+                    completedTasks++;
+                }
+                return acc;
+            }, {});
+
+            let chapterIndex = 0;
+            for (const chapterTitle in DEFAULT_CONCEPTS_BY_CHAPTER) { // Ensure order of chapters
+                const chapterTasks = tasksByChapter[chapterTitle] || [];
+                
+                const chapterElement = document.createElement('div');
+                chapterElement.className = 'chapter-group mb-6 bg-white rounded-lg shadow-sm overflow-hidden';
+
+                let chapterCompletedTasks = 0;
+                chapterTasks.forEach(task => {
+                    if (task.completed) chapterCompletedTasks++;
+                });
+                const chapterTotalTasks = chapterTasks.length;
+                const chapterProgress = chapterTotalTasks > 0 ? (chapterCompletedTasks / chapterTotalTasks) * 100 : 0;
+
+                chapterElement.innerHTML = `
+                    <div class="chapter-header sticky bg-white pt-4 pb-3 px-4 md:px-6 border-b border-gray-200 z-10 -mt-px">
+                        <h2 class="text-xl font-bold text-purple-700 mb-2">${chapterTitle}</h2>
+                        <div class="w-full bg-gray-200 rounded-full h-1.5">
+                            <div class="bg-gradient-to-r from-purple-400 to-green-400 h-1.5 rounded-full transition-all duration-500 ease-out" style="width: ${chapterProgress.toFixed(0)}%;"></div>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">${chapterCompletedTasks}/${chapterTotalTasks} completed</p>
+                    </div>
+                    <div class="chapter-tasks p-4 md:p-6 space-y-3">
+                        <!-- Tasks go here --></div>
+                `;
+                container.appendChild(chapterElement);
+
+                const chapterTasksContainer = chapterElement.querySelector('.chapter-tasks');
+                chapterTasks.sort((a, b) => a.order - b.order).forEach(task => {
+                    const isCompleted = task.completed;
+                    const taskElement = document.createElement('div');
+                    taskElement.className = `flex items-start p-3 rounded-lg transition duration-200 ${isCompleted ? 'bg-green-50' : 'bg-gray-50'} hover:bg-opacity-80`;
+                    taskElement.id = task.id;
+
+                    taskElement.innerHTML = `
+                        <input type="checkbox" id="task-${task.id}" ${isCompleted ? 'checked' : ''} 
+                            class="task-checkbox ${isCompleted ? '' : 'task-checkbox-purple'} mt-1">
+                        
+                        <label for="task-${task.id}" class="flex-1 ml-3 text-gray-800 font-medium ${isCompleted ? 'line-through text-green-700' : 'text-gray-700'} transition duration-150 text-base">
+                            ${task.text}
+                        </label>
+
+                        <button data-id="${task.id}" class="delete-btn p-1 ml-4 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-100 transition duration-150 focus:outline-none focus:ring-2 focus:ring-red-500">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    `;
+                    chapterTasksContainer.appendChild(taskElement);
+                });
+                chapterIndex++;
+            }
+            
+            updateOverallProgress(completedTasks, totalTasks);
+            attachEventListeners(tasks);
+        }
+
+        /**
+         * Updates the overall completion percentage and progress bar.
+         * @param {number} completed - Number of completed tasks.
+         * @param {number} total - Total number of tasks.
+         */
+        function updateOverallProgress(completed, total) {
+            const percentageEl = document.getElementById('overall-completion-percentage');
+            const progressBarEl = document.getElementById('overall-progress-bar');
+            let percentage = 0;
+            if (total > 0) {
+                percentage = (completed / total) * 100;
+            }
+            percentageEl.textContent = `${percentage.toFixed(0)}%`;
+            progressBarEl.style.width = `${percentage.toFixed(0)}%`;
+        }
+
+
+        /**
+         * Attaches event listeners for checkbox toggling and deletion.
+         */
+        function attachEventListeners(currentTasks) {
+            document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                checkbox.onchange = (e) => {
+                    const taskId = e.target.id.replace('task-', '');
+                    handleToggleTask(taskId, e.target.checked, currentTasks);
+                };
+            });
+
+            document.querySelectorAll('.delete-btn').forEach(button => {
+                button.onclick = (e) => {
+                    const taskId = e.currentTarget.dataset.id;
+                    handleDeleteTask(taskId, currentTasks);
+                };
+            });
+        }
+
+        // --- Database & Logic Handlers ---
+
+        /**
+         * Toggles the completion status of a task in Firestore.
+         */
+        async function handleToggleTask(taskId, newStatus, currentTasks) {
+            console.log(`Toggling task ${taskId} to ${newStatus}`);
+            try {
+                const updatedTasks = currentTasks.map(task => 
+                    task.id === taskId ? { ...task, completed: newStatus } : task
+                );
+                
+                const docRef = doc(db, TASK_COLLECTION_PATH + userId, TASK_COLLECTION_NAME, TASK_DOC_ID);
+                await updateDoc(docRef, {
+                    tasks: updatedTasks
+                });
+            } catch (error) {
+                console.error("Error toggling task status:", error);
+            }
+        }
+
+        /**
+         * Deletes a task from the Firestore document.
+         */
+        async function handleDeleteTask(taskId, currentTasks) {
+            console.log(`Deleting task ${taskId}`);
+            try {
+                const updatedTasks = currentTasks.filter(task => task.id !== taskId);
+                
+                const docRef = doc(db, TASK_COLLECTION_PATH + userId, TASK_COLLECTION_NAME, TASK_DOC_ID);
+                await updateDoc(docRef, {
+                    tasks: updatedTasks
+                });
+            } catch (error) {
+                console.error("Error deleting task:", error);
+            }
+        }
+
+        /**
+         * Creates a fresh list of tasks in Firestore if it doesn't exist or is outdated.
+         */
+        async function initializeTasks() {
+            try {
+                const docRef = doc(db, TASK_COLLECTION_PATH + userId, TASK_COLLECTION_NAME, TASK_DOC_ID);
+                const docSnap = await getDoc(docRef);
+
+                let existingTasks = [];
+                if (docSnap.exists() && Array.isArray(docSnap.data().tasks)) {
+                    existingTasks = docSnap.data().tasks;
+                }
+
+                // Generate a fresh list based on DEFAULT_CONCEPTS_BY_CHAPTER
+                const newFullTaskList = [];
+                let orderCounter = 0;
+                for (const chapterTitle in DEFAULT_CONCEPTS_BY_CHAPTER) {
+                    DEFAULT_CONCEPTS_BY_CHAPTER[chapterTitle].forEach(conceptText => {
+                        // Check if this task already exists in existingTasks to preserve completion status
+                        const existingTask = existingTasks.find(t => t.text === conceptText && t.chapter === chapterTitle);
+                        newFullTaskList.push({
+                            id: existingTask ? existingTask.id : crypto.randomUUID(), // Preserve old ID or create new
+                            text: conceptText,
+                            completed: existingTask ? existingTask.completed : false,
+                            chapter: chapterTitle,
+                            order: orderCounter++
+                        });
+                    });
+                }
+                
+                // Compare newFullTaskList with existingTasks. If they are different (e.g., new concepts added/removed),
+                // or if the existing tasks are empty/malformed, then update Firestore.
+                // A simple comparison of length and order might suffice for changes.
+                const shouldUpdateFirestore = JSON.stringify(existingTasks.map(t => ({text: t.text, chapter: t.chapter}))) !== 
+                                             JSON.stringify(newFullTaskList.map(t => ({text: t.text, chapter: t.chapter})));
+
+                if (shouldUpdateFirestore || existingTasks.length === 0) {
+                    console.log("Updating/Initializing tasks in Firestore...");
+                    await setDoc(docRef, { tasks: newFullTaskList });
+                    console.log("Tasks updated/set successfully.");
+                } else {
+                    console.log("Tasks are already up-to-date.");
+                }
+
+            } catch (error) {
+                console.error("Error initializing tasks:", error);
+            }
+        }
+
+
+        /**
+         * Sets up Firebase, handles authentication, and starts listening for data.
+         */
+        async function setupFirebaseAndAuth() {
+            if (!firebaseConfig) {
+                 console.error("Firebase config is missing.");
+                 document.getElementById('loading').textContent = "ERROR: Firebase configuration is missing.";
+                 return;
+            }
+
+            // Initialize Firebase App and services
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+
+            // 1. Authenticate user
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                    console.log("Signed in with custom token.");
+                } else {
+                    await signInAnonymously(auth);
+                    console.log("Signed in anonymously.");
+                }
+            } catch (error) {
+                console.error("Authentication Error:", error);
+                document.getElementById('loading').textContent = "ERROR: Could not authenticate user.";
+                return;
+            }
+
+            // 2. Wait for auth state to resolve
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                    document.getElementById('user-id').textContent = userId.substring(0, 8) + '...'; // Truncate for display
+                    document.getElementById('app-id').textContent = appId.substring(0, 8) + '...'; // Truncate for display
+                    
+                    // 3. Initialize tasks (or ensure they are up-to-date)
+                    await initializeTasks();
+
+                    // 4. Set up real-time listener (onSnapshot)
+                    const taskDocRef = doc(db, TASK_COLLECTION_PATH + userId, TASK_COLLECTION_NAME, TASK_DOC_ID);
+                    
+                    onSnapshot(taskDocRef, (docSnap) => {
+                        const loadingEl = document.getElementById('loading');
+                        const listContainer = document.getElementById('task-list-container');
+                        
+                        // Hide loading spinner and show container once data starts flowing
+                        loadingEl.classList.add('hidden');
+                        listContainer.classList.remove('hidden');
+
+                        if (docSnap.exists()) {
+                            const data = docSnap.data();
+                            // Ensure data.tasks is an array before rendering
+                            const tasks = Array.isArray(data.tasks) ? data.tasks : [];
+                            renderTasks(tasks);
+                        } else {
+                            // If the document somehow disappears, re-initialize
+                            console.warn("Task document missing, attempting re-initialization.");
+                            initializeTasks();
+                        }
+                    }, (error) => {
+                        console.error("Firestore Snapshot Error:", error);
+                        document.getElementById('loading').textContent = "ERROR: Could not fetch real-time data.";
+                    });
+
+                } else {
+                    // User signed out or not available
+                    console.log("User signed out or not available.");
+                }
+            });
+        }
+
+        // --- Start the Application ---
+        window.onload = setupFirebaseAndAuth;
+    </script>
+</body>
+</html>
